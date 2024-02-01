@@ -1,7 +1,7 @@
 ---
-mdu: MDU
-education: Higher Ed
-lpv: Stadiums & Arenas
+mdu: Multi-Dwelling Units
+education: Higher Education
+lpv: Large Public Venues
 airports: Airports
 ---
 
