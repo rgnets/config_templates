@@ -1,6 +1,5 @@
 ---
 mdu: Multi-Dwelling Units
-lpv: Large Public Venues
 hsp: Hospitality
 ---
 
