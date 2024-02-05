@@ -1,3 +1,28 @@
+###############
+# MDU TEMPLATE
+###############
+#
+# This template will create a configuration based on a typical
+# basic MDU configuration.
+#  
+# It is broken up into Pre-Auth/Guest and Post-Auth authentication mechisms
+# for onboarding new accounts and admitting authorized accounts via multiple 
+# pre-shared key.
+#
+###############
+
+#IMPORTANT: Please change these values to to match the target system
+<%
+
+wan_interface ||= 'igb0'
+lan_interface ||= 'igb3'
+
+%>
+###############
+# Template begins
+###############
+
+# Generate Policies
 Policy:
 - name: Management
 - name: Post-Auth Landing
@@ -8,6 +33,8 @@ Policy:
 - name: Pre-Auth / Guests
 - name: Default
   _delete: true
+  
+# Subnet Filter to block traffic between VLANs/Subnets
 SubnetsFilter:
 - name: Block Subnets
   policies:
@@ -17,25 +44,31 @@ SubnetsFilter:
   - Post-Auth Landing
   - Pre-Auth / Guests
   - Premium
+
+# Enable LLDP on LAN and WAN Interfaces
 LadvdOption:
 - name: default
   active: true
   auto_enable_protocols: true
   listen_only: false
   interfaces:
-  - em0
-  - em1
+  - <%= lan_interface %>
+  - <%= wan_interface %>
+
+# Create Pre-Auth/Guest and Post-Auth VLANs and apply to LAN interface
 Vlan:
 - name: Pre-Auth / Guests
-  interface: em1
+  interface: <%= lan_interface %>
   tag: 1100
   autoincrement_ratio: 8
   autoincrement_mode: address
 - name: Post-Auth / Accounts
-  interface: em1
+  interface: <%= lan_interface %>
   tag: 1108
   autoincrement_ratio: 1
   autoincrement_mode: address
+  
+# Apply IP addresses to VLANs  
 Address:
 - name: Pre-Auth / Guests
   vlan: Pre-Auth / Guests
@@ -47,6 +80,8 @@ Address:
   span: 1
   autoincrement: 110
   cidr: 10.0.1.1/24
+  
+# Create DHCP Pools for subnets
 DhcpPool:
 - name: Pre-Auth / Guests
   start_ip: 10.0.0.2
@@ -60,6 +95,8 @@ DhcpPool:
   start_reserved: 0
   end_reserved: 0
   router_host_nth: 0
+  
+# Create IP Groups for subnets
 IpGroup:
 - name: Pre-Auth / Guests
   priority: 5
@@ -71,6 +108,8 @@ IpGroup:
   addresses:
   - Post-Auth / Accounts
   policy: Post-Auth Landing
+  
+# Create Radius Server
 RadiusServerOption:
 - name: Default
   active: true
@@ -83,10 +122,13 @@ RadiusServerOption:
   max_tls_version: '1.2'
   policies:
   - Management
+  
+# Create Radius realms for Pre-Auth/Guest and Post-Auth WLANs
 RadiusServer:
 - name: Pre-Auth / Guests
   reuse_vlans: true
   vta_timeout_minutes: 60
+  ## VLAN assignment for onboarding/guest network will be per-device
   vlan_sharing: device
   unlimited_vlans_per_csid_mac: true
   rank: 2
@@ -107,6 +149,7 @@ RadiusServer:
 - name: Post-Auth / Accounts
   reuse_vlans: false
   vta_timeout_minutes: 60
+  ## VLAN assignment for Tenant/Post-Auth will be per-account
   vlan_sharing: account
   unlimited_vlans_per_csid_mac: true
   rank: 0
@@ -115,6 +158,7 @@ RadiusServer:
   - Tunnel-Type
   - Tunnel-Medium-Type
   - Tunnel-Private-Group-Id
+  - Ruckus-DPSK
   vlans:
   - Post-Auth / Accounts
   policies:
@@ -122,6 +166,8 @@ RadiusServer:
   - Free
   - Business
   - Basic
+  
+# Create Account Groups based on plans 
 AccountGroup:
 - name: Free
   policy: Free
@@ -135,6 +181,8 @@ AccountGroup:
 - name: Business
   policy: Business
   priority: 4
+  
+# Create Shared Credential Group for guest users
 SharedCredentialGroup:
 - name: Free
   policy: Free
@@ -163,6 +211,8 @@ SharedCredentialGroup:
   sat: true
   sun: true
   recurring_method: none
+  
+# Create Captive Portal for Splash and Landing
 CaptivePortal:
 - name: Default Splash
   portal_name: default
@@ -199,6 +249,8 @@ LandingPortal:
   background_automatic_login: mac
   policies:
   - Post-Auth Landing
+  
+# Survey question to gather information for Guest users
 SurveyQuestion:
 - question: Email Address
   question_type: email
@@ -209,6 +261,8 @@ SurveyQuestion:
   landing_portals:
   - Default Landing
   - Post-Auth Landing
+  
+# Create Billing merchants
 Merchant:
 - name: Authorize.Net
   gateway: AuthorizeNet
@@ -221,6 +275,8 @@ Merchant:
   login: tcb@rgnets.com
   integration: Paypal
   dup_timeout_seconds: 60
+  
+# Create Plans
 TimePlan:
 - name: Unlimited
   price: 0.0
@@ -386,6 +442,8 @@ UsagePlan:
   - Default Landing
   merchants:
   - Paypal
+  
+# Create Traffic Shaping rules
 BandwidthQueue:
 - name: Infrastructure
   upload_bw: 100
@@ -472,6 +530,11 @@ BandwidthQueue:
   policies:
   - Post-Auth Landing
   - Pre-Auth / Guests
+  
 Squid:
 - name: Cache
   _delete: true
+  
+########
+# Template ends
+########
