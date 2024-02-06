@@ -1,7 +1,7 @@
 ---
 mdu: Multi-Dwelling Units
 hsp: Hospitality
-ecucation: Higher Education
+education: Higher Education
 ---
 
 # RG Nets Config Templates
