@@ -1,10 +1,10 @@
 <<<<<<< HEAD
 ---
-# This is a template for K-12 deployments that includes the initial
+# This is a template for a typical edu deployment that includes the initial
 # configuration of an rXg. It can then be configured as a standalone rXg,
 # or a cluster member.
 
-# A typical K-12 deployment consists of an rXg connected to LDAP for identity
+# A typical edu deployment consists of an rXg connected to LDAP for identity
 # management. And contains the required identity groups, networks,
 # policies, vlans, and portals.
 
