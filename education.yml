@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 ---
 # This is a template for K-12 deployments that includes the initial
 # configuration of an rXg. It can then be configured as a standalone rXg,
@@ -223,3 +224,233 @@ ldap_domain_servers_ip ||= ['10.89.1.1', '10.89.1.2']
     background_automatic_login: mac
     policies:
     - Internal Devices
+=======
+---
+# This is atemplate for K-12 deployments that includes the initial
+# configuration of an rXg. It can then be configured as a standalone rXg,
+# or a cluster member.
+
+# A typical K-12 deployment consists of an rXg connected to LDAP for identity
+# management. And contains the required identity groups, networks,
+# policies, vlans, and portals.
+
+#Networks
+# 	Staff
+#		  Internal
+#		  BYOD
+# 	Students
+#		  Internal
+#		  BYOD
+# 	Infrastructure/Management
+# 	IOT
+
+#Policies
+# 	Staff
+#		  Internal
+#		  BYOD
+# 	Students
+#		  Internal
+#		  BYOD
+# 	Infrastructure/Management
+# 	IOT
+
+#Portals
+# TODO
+
+#######################################################################################
+# The following section contains the variables used in the template. You can modify   #
+# them in this section and see them reused later between '<%=' and '%>'tags.          #
+# Since these templates are erb based you do have the option to use inline ruby.      #
+#######################################################################################
+
+<%
+
+#System settings
+fqdn ||= 'rxg.example.com'
+time_zone ||= 'America/Chicago'
+ntp_server ||= '10.123.1.2'
+
+#Networking variables
+networks ||= ['Staff-Internal', 'Staff-BYOD', 'Students-Internal', 'Students-BYOD', 'Infrastructure/Management', 'IOT']
+vlans ||= ['1100', '1200', '1300', '1400', '1500', '1600']
+domain ||= 'example.com'
+dns_servers||= '10.87.53.1,10.87.53.2'
+
+#WAN Settings
+wan_interface ||= 'vmx0'
+
+#LAN interface
+lan_interface ||= 'vmx1'
+
+# LDAP Variables
+ldap_domain ||= 'example.com'
+dc1 ||= 'com'
+dc2 ||= 'example'
+username_attribute ||= 'userprincipalname'
+ldap_domain_servers ||= ['Active Directory A', 'Active Directory B']
+ldap_domain_servers_ip ||= ['10.89.1.1', '10.89.1.2']
+
+%>
+
+##################################################################################
+# This is the template section, it leverages variables specified above.          #
+# You can override the values and add/remove sections per your needs             #
+##################################################################################
+
+# Enable LLDP on LAN and WAN Interfaces
+- LadvdOption:
+  - name: default
+    active: true
+    auto_enable_protocols: true
+    listen_only: false
+    interfaces:
+    - <%= lan_interface %>
+    - <%= wan_interface %>
+
+# Create all VLANs and apply to LAN interface
+- Vlan:
+  <% networks.zip(vlans).each do |network, vlan| %>
+  - name: <%= network %>
+    interface: <%= lan_interface %>
+    tag: <%= vlan %>
+    autoincrement_ratio: 1
+    autoincrement_mode: address
+  <% end %>
+
+# Apply IP addresses to VLANs
+- Address:
+  <% networks.each_with_index do |network, index| %>
+  - name: <%= network %>
+    vlan: <%= network %>
+    span: 1
+    autoincrement: 4
+    cidr: 10.<%= index+1 %>.0.1/24
+  <% end %>
+
+# Create DHCP Pools for subnets
+- DhcpPool:
+  <% networks.each_with_index do |network, index| %>
+  - name: <%= network %>
+    start_ip:  10.<%= index+1 %>.0.2
+    end_ip:  10.<%= index+1 %>.0.254
+    start_reserved: 0
+    end_reserved: 0
+    router_host_nth: 0
+  <% end %>
+
+# Define DHCP options
+- DhcpOption:
+  - name: <%= domain %>
+    option_name: domain-name
+    option_value: <%= domain %>
+  - name: Internal DNS Servers
+    option_name: domain-name-servers
+    option_value: <%= dns_servers %>
+
+# Create IP Groups for subnets
+- IpGroup:
+  <% networks.each_with_index do |network, index| %>
+  - name: <%= network %>
+    priority: <%= index+1 %>
+    addresses:
+    - <%= network %>
+    policy: <%= network %>
+  <% end %>
+
+# LDAP
+- Ldap_domains:
+  - name: <%= ldap_domain %>
+    active_directory_binding: true
+    domain: <%= ldap_domain %>
+    users_context: DC=<%= dc2 %>,DC=<%= dc1 %>
+    username_attribute: <%= username_attribute %>
+    create_account: true
+    join_domain: true
+    ldap_domain_servers:
+      <% ldap_domain_servers.zip(ldap_domain_servers_ip).each.with_index(1) do |(server, ip), index| %>
+      - name: <%= server %>
+        priority: <%= index %>
+        host: <%= ip %>
+        port: 389
+        timeout: 15
+        tries: 1
+      <% end %>
+
+# Create the required policies based on the networks list and remove the Default policy
+- Policy:
+  <% networks.each do |network| %>
+  - name: <%= network %>
+  <% end %>
+  - name: Default
+    default: true
+
+# Create Radius Server
+- RadiusServerOption:
+  - name: Default
+    active: true
+    auth_port: 1812
+    acct_port: 1813
+    secret: lJCCtI9qMfDe_6R1OLGdXg
+    radsec_port: 2083
+    debug_level: normal
+    min_tls_version: '1.2'
+    max_tls_version: '1.2'
+    policies:
+    - Management
+
+# Shared Credential Group for internal devices
+- SharedCredentialGroup:
+  - name: Internal Devices
+    policy: Internal Devices
+    priority: 5
+    credential: IT_Department
+    min_mac_login_period: 0
+    unlimited_usage_minutes: true
+    unlimited_usage_mb_up: true
+    unlimited_usage_mb_down: true
+    max_simultaneous_sessions: 20
+    starts_at: !ruby/object:ActiveSupport::TimeWithZone
+      utc: 2022-10-11 05:00:00.000000000 Z
+      zone: &1 !ruby/object:ActiveSupport::TimeZone
+        name: America/Chicago
+      time: 2022-10-11 00:00:00.000000000 Z
+    ends_at: !ruby/object:ActiveSupport::TimeWithZone
+      utc: 2032-10-31 05:00:00.000000000 Z
+      zone: *1
+      time: 2032-10-31 00:00:00.000000000 Z
+    state: active
+    mon: true
+    tues: true
+    wed: true
+    thurs: true
+    fri: true
+    sat: true
+    sun: true
+    recurring_method: none
+    automatic_login: true
+
+# Create Captive Portal for Splash and Landing
+- CaptivePortal:
+  - name: Default Splash
+    portal_name: default
+    background_automatic_login: mac
+    portal_automatic_login: mac_or_cookie
+    password_reset_method: secret_question
+    role_attribute: none
+    shared_credential_groups:
+    - Internal Devices
+    ldap_domains:
+    - <%= ldap_domain %>
+    policies:
+    - Default
+- LandingPortal:
+  - name: Default Landing
+    portal_name: default
+    unlimited_session_minutes: true
+    idle_minutes: 20
+    session_grace_minutes: 15
+    portal_automatic_login: mac_or_cookie
+    background_automatic_login: mac
+    policies:
+    - Internal Devices
+>>>>>>> 477c0a1b043ec0ffd0cf97e607e44b0a56134fbf

@@ -1,8 +1,7 @@
 ---
 mdu: Multi-Dwelling Units
-education: Higher Education
-lpv: Large Public Venues
-airports: Airports
+hsp: Hospitality
+k12: K-12 Schools
 ---
 
 # RG Nets Config Templates
