@@ -2,6 +2,9 @@
 mdu: Multi-Dwelling Units
 hsp: Hospitality
 k12: K-12 Schools
+education: Higher Education
+beach: Beach Resort
+ski: Ski Resort
 ---
 
 # RG Nets Config Templates
