@@ -125,7 +125,7 @@ lan_interface ||= 'igb3'
 
 # Create Captive Portal for Splash and Landing
 - CaptivePortal:
-  - name:WiFi Landing Landing
+  - name: WiFi Landing Landing
     portal_name: default
     background_automatic_login: mac
     portal_automatic_login: mac_or_cookie

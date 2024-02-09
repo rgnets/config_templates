@@ -5,6 +5,7 @@ k12: K-12 Schools
 education: Higher Education
 beach: Beach Resort
 ski: Ski Resort
+lpv: Large Public Venue
 ---
 
 # RG Nets Config Templates
