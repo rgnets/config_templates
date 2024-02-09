@@ -1,0 +1,145 @@
+---
+# This is a template for LPV deployments that includes the initial
+# configuration of an rXg. It can then be configured as a standalone
+# rXg, or a cluster member.
+
+# A typical LPV deployment consists of an rXg connected to large Wi-Fi
+# network. And contains the required identity groups, networks,
+# policies, vlans, and portals.
+
+
+#######################################################################################
+# The following section contains the variables used in the template. You can modify   #
+# them in this section and see them reused later between '<%=' and '%>'tags.          #
+# Since these templates are erb based you do have the option to use inline ruby.      #
+#######################################################################################
+
+<%
+
+#System settings
+fqdn ||= 'rxg.example.com' 
+time_zone ||= 'America/Chicago' 
+ntp_server||= '10.123.1.2'
+
+#Networking variables
+networks ||= ['Management', 'Guest', 'Vendors'] 
+vlans ||= ['313','3450', '1300'] 
+domain ||= 'example.com'
+dns_servers||= '10.87.53.1,10.87.53.2'
+
+#WAN Settings
+wan_interface ||= 'igb0'
+
+#LAN interface
+lan_interface ||= 'igb3'
+%>
+
+##################################################################################
+# This is the template section, it leverages variables specified above.          #
+# You can override the values and add/remove sections per your needs             #
+##################################################################################
+
+
+# Enable LLDP on LAN and WAN Interfaces
+- LadvdOption:
+  - name: default
+    active: true
+    auto_enable_protocols: true
+    listen_only: false
+    interfaces:
+    - <%= lan_interface %>
+    - <%= wan_interface %>
+
+# Create all VLANs and apply to LAN interface
+- Vlan:
+  <% networks.zip(vlans).each do |network, vlan| %>
+    - name: <%= network %>
+      interface: <%= lan_interface %>
+      tag: <%= vlan %>
+      autoincrement_ratio: 1
+      autoincrement_mode: address
+  <% end %>
+
+# Apply IP addresses to VLANs
+- Address:
+  <% networks.each_with_index do |network, index| %>
+  - name: <%= network %>
+    vlan: <%= network %>
+    span: 1
+    autoincrement: 4
+    cidr: 10.<%= index+1 %>.0.1/18
+  <% end %>
+
+# Create DHCP Pools for subnets
+- DhcpPool:
+  <% networks.each_with_index do |network, index| %>
+  - name: <%= network %>
+    start_ip:  10.<%= index+1 %>.0.2
+    end_ip:  10.<%= index+1 %>.63.254
+    start_reserved: 0
+    end_reserved: 0
+    router_host_nth: 0
+  <% end %>
+
+# Define DHCP options
+- DhcpOption:
+  - name: <%= domain %>
+    option_name: domain-name
+    option_value: <%= domain %>
+  - name: Internal DNS Servers
+    option_name: domain-name-servers
+    option_value: <%= dns_servers %>
+
+# Create IP Groups for subnets
+- IpGroup:
+  <% networks.each_with_index do |network, index| %>
+  - name: <%= network %>
+    priority: <%= index+1 %>
+    addresses:
+    - <%= network %>
+    policy: <%= network %>
+  <% end %>
+
+# Create the required policies based on the networks list and remove the Default policy
+- Policy:
+  <% networks.each do |network| %>
+    - name: <%= network %>
+  <% end %>
+- name: Default
+  default: true
+
+# Create Radius Server
+- RadiusServerOption:
+  - name: Guest
+    active: true
+    auth_port: 1812
+    acct_port: 1813
+    secret: lJCCtI9qMfDe_6R1OLGdXg
+    radsec_port: 2083
+    debug_level: normal
+    min_tls_version: '1.2'
+    max_tls_version: '1.2'
+    policies:
+    - Guest
+
+
+# Create Captive Portal for Splash and Landing
+- CaptivePortal:
+  - name:WiFi Landing Landing
+    portal_name: default
+    background_automatic_login: mac
+    portal_automatic_login: mac_or_cookie
+    password_reset_method: secret_question
+    role_attribute: none
+    policies:
+    - Guest
+- LandingPortal:
+  - name: Default Landing
+    portal_name: default
+    unlimited_session_minutes: true
+    idle_minutes: 20
+    session_grace_minutes: 15
+    portal_automatic_login: mac_or_cookie
+    background_automatic_login: mac
+    policies:
+    - Vendors
